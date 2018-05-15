@@ -13,9 +13,10 @@
 // limitations under the License.
 
 import { createSelector } from 'reselect';
-import fuzzy from 'fuzzy';
 
 import { getProcessServiceName } from './process';
+
+export const STACKTRACE_SPAN_KEY_SUFFIX = '.tb';
 
 export const getSpanId = span => span.spanID;
 export const getSpanName = span => span.operationName;
@@ -45,8 +46,15 @@ export const getSpanProcess = span => {
 
   return span.process;
 };
+export const getSpanTags = span => (span.tags === undefined ? [] : span.tags);
+export const getTagsString = tags =>
+  tags
+    .filter(tag => !tag.key.endsWith(STACKTRACE_SPAN_KEY_SUFFIX))
+    .map(tag => `${tag.key}=${tag.value}`)
+    .join(' ');
 
 export const getSpanServiceName = createSelector(getSpanProcess, getProcessServiceName);
+export const getSpanTagsString = createSelector(getSpanTags, getTagsString);
 
 export const filterSpansForTimestamps = createSelector(
   ({ spans }) => spans,
@@ -60,11 +68,9 @@ export const filterSpansForText = createSelector(
   ({ spans }) => spans,
   ({ text }) => text,
   (spans, text) =>
-    fuzzy
-      .filter(text, spans, {
-        extract: span => `${getSpanServiceName(span)} ${getSpanName(span)}`,
-      })
-      .map(({ original }) => original)
+    spans.filter(span =>
+      `${getSpanServiceName(span)} ${getSpanName(span)} ${getSpanTagsString(span)}`.includes(text)
+    )
 );
 
 const getTextFilterdSpansAsMap = createSelector(filterSpansForText, matchingSpans =>
